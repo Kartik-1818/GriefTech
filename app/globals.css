@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --teal: #028090;
+  --teal-dark: #014f5a;
+  --teal-soft: #E6F3F4;
+  --warm: #FAF8F5;
+  --warm-grey: #8A8275;
+}
+
+html, body { font-size: 16px; }
+body { font-family: var(--font-inter), 'Inter', system-ui, sans-serif; }
+
+.gt-gradient {
+  background: radial-gradient(1200px 600px at 20% -10%, #E6F3F4 0%, transparent 60%),
+              radial-gradient(900px 500px at 110% 10%, #FFF3E6 0%, transparent 55%),
+              #FAF8F5;
+}
+
+.gt-card {
+  background: #fff;
+  border: 1px solid #EDE7DC;
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(2,128,144,0.04), 0 8px 24px rgba(2,128,144,0.05);
+}
+
+.gt-btn-primary {
+  background: #028090; color: #fff;
+  transition: background .15s;
+}
+.gt-btn-primary:hover { background: #014f5a; }
+
+.gt-ring:focus { outline: none; box-shadow: 0 0 0 3px rgba(2,128,144,0.25); }
+
+@keyframes gt-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.gt-fade-up { animation: gt-fade-up .4s ease both; }
+
+.gt-chat-bubble-u { background: #028090; color: #fff; border-radius: 16px 16px 4px 16px; }
+.gt-chat-bubble-a { background: #E6F3F4; color: #0B2F34; border-radius: 16px 16px 16px 4px; }
+
+.gt-scroll::-webkit-scrollbar { width: 6px; }
+.gt-scroll::-webkit-scrollbar-thumb { background: #D7CEBE; border-radius: 3px; }
