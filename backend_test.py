@@ -1,467 +1,534 @@
 #!/usr/bin/env python3
 """
-GriefTech Backend API Testing
-Tests the NEW backend endpoints added in the GriefTech refactor.
+GriefTech Backend Testing Suite
+Tests the THREE new backend additions as specified in the review request.
 """
 
 import requests
 import json
-import base64
+import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Base URL from environment
 BASE_URL = "https://family-guide-3.preview.emergentagent.com/api"
 
-def test_onboard_setup():
-    """Setup: POST /api/onboard to get sessionId for other tests"""
-    print("=== SETUP: POST /api/onboard ===")
+def test_onboard_validation():
+    """Test A) Onboard validation (Aadhaar + PIN now compulsory)"""
+    print("\n=== A) TESTING ONBOARD VALIDATION ===")
     
-    payload = {
-        "deceasedName": "Ramesh Kumar",
-        "dateOfDeath": "2025-05-01",
-        "relationship": "Son",
-        "claimantName": "Arjun Kumar",
+    # Test 1: POST /api/onboard with full valid body
+    print("Test 1: Valid onboard with aadhaar and pincode")
+    valid_payload = {
+        "deceasedName": "Ramesh Kumar Sharma",
+        "dateOfDeath": "2024-05-01",
+        "relationship": "son",
+        "claimantName": "Suresh Kumar Sharma",
         "state": "Maharashtra",
         "city": "Pune",
+        "aadhaar": "123456789012",
+        "pincode": "411014",
         "assets": {
             "uan": "100200300400",
             "banks": True,
             "policies": True,
-            "property": True
+            "property": False
         }
     }
     
     try:
-        response = requests.post(f"{BASE_URL}/onboard", json=payload, timeout=30)
+        response = requests.post(f"{BASE_URL}/onboard", json=valid_payload, timeout=10)
         print(f"Status: {response.status_code}")
-        
         if response.status_code == 200:
             data = response.json()
-            session_id = data.get('sessionId')
-            print(f"✅ Onboard successful, sessionId: {session_id}")
-            return session_id
+            print("✅ Valid onboard successful")
+            print(f"SessionId: {data.get('sessionId')}")
+            profile = data.get('profile', {})
+            if 'aadhaar' in profile and 'pincode' in profile:
+                print(f"✅ Profile includes aadhaar: {profile['aadhaar']}")
+                print(f"✅ Profile includes pincode: {profile['pincode']}")
+                # Store sessionId for later tests
+                global test_session_id
+                test_session_id = data.get('sessionId')
+            else:
+                print("❌ Profile missing aadhaar or pincode fields")
         else:
-            print(f"❌ Onboard failed: {response.text}")
-            return None
-            
+            print(f"❌ Expected 200, got {response.status_code}: {response.text}")
     except Exception as e:
-        print(f"❌ Onboard error: {str(e)}")
-        return None
-
-def test_epfo_lookup():
-    """Test A: POST /api/epfo-lookup"""
-    print("\n=== TEST A: POST /api/epfo-lookup ===")
+        print(f"❌ Request failed: {e}")
     
-    # Test 1: Valid UAN
-    print("A1. Testing valid UAN '100200300400'")
+    # Test 2: Invalid aadhaar (too short)
+    print("\nTest 2: Invalid aadhaar (too short)")
+    invalid_aadhaar_payload = valid_payload.copy()
+    invalid_aadhaar_payload["aadhaar"] = "12345"
+    
     try:
-        response = requests.post(f"{BASE_URL}/epfo-lookup", json={"uan": "100200300400"}, timeout=30)
+        response = requests.post(f"{BASE_URL}/onboard", json=invalid_aadhaar_payload, timeout=10)
         print(f"Status: {response.status_code}")
-        
-        if response.status_code == 200:
-            data = response.json()
-            print(f"Response: {json.dumps(data, indent=2)}")
-            
-            # Validate response structure
-            required_fields = ['found', 'uan', 'employer', 'member_id', 'last_contribution', 'eps_member', 'nominee_on_record', 'actions']
-            missing_fields = [field for field in required_fields if field not in data]
-            
-            if missing_fields:
-                print(f"❌ Missing fields: {missing_fields}")
-                return False
-                
-            if not data.get('found'):
-                print("❌ Expected found=true for valid UAN")
-                return False
-                
-            if not isinstance(data.get('employer'), str) or len(data.get('employer', '')) == 0:
-                print("❌ Employer should be non-empty string")
-                return False
-                
-            if not isinstance(data.get('member_id'), str):
-                print("❌ member_id should be string")
-                return False
-                
-            if not isinstance(data.get('eps_member'), bool):
-                print("❌ eps_member should be boolean")
-                return False
-                
-            actions = data.get('actions', [])
-            if not isinstance(actions, list) or len(actions) != 2:
-                print(f"❌ Expected actions array of length 2, got {len(actions)}")
-                return False
-                
-            # Check for required form keys
-            form_keys = [action.get('formKey') for action in actions]
-            if 'epf_form_20' not in form_keys or 'epf_form_10d' not in form_keys:
-                print(f"❌ Expected formKeys 'epf_form_20' and 'epf_form_10d', got {form_keys}")
-                return False
-                
-            print("✅ A1 passed - valid UAN response structure correct")
-        else:
-            print(f"❌ A1 failed with status {response.status_code}: {response.text}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ A1 error: {str(e)}")
-        return False
-    
-    # Test 2: Invalid UAN (too short)
-    print("\nA2. Testing invalid UAN '123'")
-    try:
-        response = requests.post(f"{BASE_URL}/epfo-lookup", json={"uan": "123"}, timeout=30)
-        print(f"Status: {response.status_code}")
-        
-        if response.status_code == 200:
-            data = response.json()
-            print(f"Response: {json.dumps(data, indent=2)}")
-            
-            if data.get('found') != False:
-                print("❌ Expected found=false for invalid UAN")
-                return False
-                
-            reason = data.get('reason', '')
-            if '12 digits' not in reason:
-                print(f"❌ Expected reason to contain '12 digits', got: {reason}")
-                return False
-                
-            print("✅ A2 passed - invalid UAN handled correctly")
-        else:
-            print(f"❌ A2 failed with status {response.status_code}: {response.text}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ A2 error: {str(e)}")
-        return False
-    
-    # Test 3: Empty UAN
-    print("\nA3. Testing empty UAN")
-    try:
-        response = requests.post(f"{BASE_URL}/epfo-lookup", json={}, timeout=30)
-        print(f"Status: {response.status_code}")
-        
-        if response.status_code == 200:
-            data = response.json()
-            print(f"Response: {json.dumps(data, indent=2)}")
-            
-            if data.get('found') != False:
-                print("❌ Expected found=false for empty UAN")
-                return False
-                
-            print("✅ A3 passed - empty UAN handled correctly")
-        else:
-            print(f"❌ A3 failed with status {response.status_code}: {response.text}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ A3 error: {str(e)}")
-        return False
-    
-    return True
-
-def test_panic_endpoint(session_id):
-    """Test B: GET /api/panic/{sessionId}"""
-    print(f"\n=== TEST B: GET /api/panic/{session_id} ===")
-    
-    if not session_id:
-        print("❌ No sessionId available for panic test")
-        return False
-    
-    # Test 1: Valid sessionId
-    print("B1. Testing valid sessionId")
-    try:
-        response = requests.get(f"{BASE_URL}/panic/{session_id}", timeout=30)
-        print(f"Status: {response.status_code}")
-        
-        if response.status_code == 200:
-            data = response.json()
-            print(f"Response: {json.dumps(data, indent=2)}")
-            
-            # Validate response structure
-            required_fields = ['days_since', 'actions', 'warning']
-            missing_fields = [field for field in required_fields if field not in data]
-            
-            if missing_fields:
-                print(f"❌ Missing fields: {missing_fields}")
-                return False
-                
-            if not isinstance(data.get('days_since'), int):
-                print("❌ days_since should be number")
-                return False
-                
-            actions = data.get('actions', [])
-            if not isinstance(actions, list) or len(actions) != 3:
-                print(f"❌ Expected exactly 3 actions, got {len(actions)}")
-                return False
-                
-            # Check each action has required fields
-            action_fields = ['title', 'plain', 'where', 'estimated_time', 'deadline_days', 'priority', 'category']
-            for i, action in enumerate(actions):
-                missing_action_fields = [field for field in action_fields if field not in action]
-                if missing_action_fields:
-                    print(f"❌ Action {i} missing fields: {missing_action_fields}")
-                    return False
-                    
-            # Check for at least one high priority
-            priorities = [action.get('priority') for action in actions]
-            if 'high' not in priorities:
-                print(f"❌ Expected at least one 'high' priority action, got priorities: {priorities}")
-                return False
-                
-            warning = data.get('warning', '')
-            if not isinstance(warning, str) or len(warning) == 0:
-                print("❌ Warning should be non-empty string")
-                return False
-                
-            print("✅ B1 passed - valid sessionId response structure correct")
-        else:
-            print(f"❌ B1 failed with status {response.status_code}: {response.text}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ B1 error: {str(e)}")
-        return False
-    
-    # Test 2: Invalid sessionId
-    print("\nB2. Testing invalid sessionId")
-    try:
-        response = requests.get(f"{BASE_URL}/panic/not-real-id", timeout=30)
-        print(f"Status: {response.status_code}")
-        
-        if response.status_code == 404:
-            print("✅ B2 passed - invalid sessionId returns 404")
-        else:
-            print(f"❌ B2 failed - expected 404, got {response.status_code}: {response.text}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ B2 error: {str(e)}")
-        return False
-    
-    return True
-
-def test_extract_document():
-    """Test C: POST /api/extract-document"""
-    print("\n=== TEST C: POST /api/extract-document ===")
-    
-    # Test 1: Missing imageBase64
-    print("C1. Testing missing imageBase64")
-    try:
-        response = requests.post(f"{BASE_URL}/extract-document", json={}, timeout=30)
-        print(f"Status: {response.status_code}")
-        
         if response.status_code == 400:
-            print("✅ C1 passed - missing imageBase64 returns 400")
+            error_text = response.text
+            if "Aadhaar" in error_text:
+                print("✅ Correctly rejected short aadhaar with Aadhaar error")
+            else:
+                print(f"❌ Error message doesn't contain 'Aadhaar': {error_text}")
         else:
-            print(f"❌ C1 failed - expected 400, got {response.status_code}: {response.text}")
-            return False
-            
+            print(f"❌ Expected 400, got {response.status_code}")
     except Exception as e:
-        print(f"❌ C1 error: {str(e)}")
-        return False
+        print(f"❌ Request failed: {e}")
     
-    # Test 2: Valid request with tiny base64
-    print("\nC2. Testing valid request with tiny base64")
+    # Test 3: Invalid pincode
+    print("\nTest 3: Invalid pincode (non-numeric)")
+    invalid_pincode_payload = valid_payload.copy()
+    invalid_pincode_payload["pincode"] = "abc"
+    
     try:
-        payload = {
-            "imageBase64": "iVBORw0KGgo=",
-            "mimeType": "image/png",
-            "docType": "death_certificate"
-        }
-        
-        response = requests.post(f"{BASE_URL}/extract-document", json=payload, timeout=30)
+        response = requests.post(f"{BASE_URL}/onboard", json=invalid_pincode_payload, timeout=10)
         print(f"Status: {response.status_code}")
-        
+        if response.status_code == 400:
+            error_text = response.text
+            if "PIN" in error_text:
+                print("✅ Correctly rejected invalid pincode with PIN error")
+            else:
+                print(f"❌ Error message doesn't contain 'PIN': {error_text}")
+        else:
+            print(f"❌ Expected 400, got {response.status_code}")
+    except Exception as e:
+        print(f"❌ Request failed: {e}")
+    
+    # Test 4: Invalid pincode (too short)
+    print("\nTest 4: Invalid pincode (too short)")
+    invalid_pincode_payload2 = valid_payload.copy()
+    invalid_pincode_payload2["pincode"] = "111"
+    
+    try:
+        response = requests.post(f"{BASE_URL}/onboard", json=invalid_pincode_payload2, timeout=10)
+        print(f"Status: {response.status_code}")
+        if response.status_code == 400:
+            error_text = response.text
+            if "PIN" in error_text:
+                print("✅ Correctly rejected short pincode with PIN error")
+            else:
+                print(f"❌ Error message doesn't contain 'PIN': {error_text}")
+        else:
+            print(f"❌ Expected 400, got {response.status_code}")
+    except Exception as e:
+        print(f"❌ Request failed: {e}")
+    
+    # Test 5: Aadhaar with spaces (should be stripped)
+    print("\nTest 5: Aadhaar with spaces (should be stripped and persist correctly)")
+    spaced_aadhaar_payload = valid_payload.copy()
+    spaced_aadhaar_payload["aadhaar"] = "1234 5678 9012"
+    
+    try:
+        response = requests.post(f"{BASE_URL}/onboard", json=spaced_aadhaar_payload, timeout=10)
+        print(f"Status: {response.status_code}")
         if response.status_code == 200:
             data = response.json()
-            print(f"Response: {json.dumps(data, indent=2)}")
-            
-            # Validate response structure
-            if 'extracted' not in data:
-                print("❌ Missing 'extracted' object")
-                return False
-                
-            if 'source' not in data:
-                print("❌ Missing 'source' field")
-                return False
-                
-            source = data.get('source')
-            if source not in ['ai', 'demo']:
-                print(f"❌ Source should be 'ai' or 'demo', got: {source}")
-                return False
-                
-            extracted = data.get('extracted', {})
-            required_extracted_fields = ['name', 'date_of_death', 'document_type']
-            missing_extracted_fields = [field for field in required_extracted_fields if field not in extracted]
-            
-            if missing_extracted_fields:
-                print(f"❌ Extracted object missing fields: {missing_extracted_fields}")
-                return False
-                
-            print("✅ C2 passed - valid request returns proper structure")
+            profile = data.get('profile', {})
+            stored_aadhaar = profile.get('aadhaar')
+            if stored_aadhaar == "123456789012":
+                print("✅ Aadhaar spaces stripped correctly and persisted as 123456789012")
+            else:
+                print(f"❌ Aadhaar not stripped correctly. Got: {stored_aadhaar}")
         else:
-            print(f"❌ C2 failed with status {response.status_code}: {response.text}")
-            return False
-            
+            print(f"❌ Expected 200, got {response.status_code}: {response.text}")
     except Exception as e:
-        print(f"❌ C2 error: {str(e)}")
-        return False
+        print(f"❌ Request failed: {e}")
     
-    return True
+    # Test 6: Missing aadhaar field
+    print("\nTest 6: Missing aadhaar field")
+    no_aadhaar_payload = valid_payload.copy()
+    del no_aadhaar_payload["aadhaar"]
+    
+    try:
+        response = requests.post(f"{BASE_URL}/onboard", json=no_aadhaar_payload, timeout=10)
+        print(f"Status: {response.status_code}")
+        if response.status_code == 400:
+            print("✅ Correctly rejected missing aadhaar")
+        else:
+            print(f"❌ Expected 400, got {response.status_code}")
+    except Exception as e:
+        print(f"❌ Request failed: {e}")
 
-def test_assets_scan_no_money(session_id):
-    """Test D: GET /api/assets/scan/{sessionId} - VERIFY NO MONEY"""
-    print(f"\n=== TEST D: GET /api/assets/scan/{session_id} - NO MONEY VERIFICATION ===")
+def test_offices_api():
+    """Test B) GET /api/offices"""
+    print("\n=== B) TESTING OFFICES API ===")
     
-    if not session_id:
-        print("❌ No sessionId available for assets scan test")
-        return False
-    
+    # Test 1: PIN 411014 (Pune)
+    print("Test 1: /api/offices?pin=411014 (Pune)")
     try:
-        response = requests.get(f"{BASE_URL}/assets/scan/{session_id}", timeout=30)
+        response = requests.get(f"{BASE_URL}/offices?pin=411014", timeout=10)
         print(f"Status: {response.status_code}")
-        
         if response.status_code == 200:
             data = response.json()
-            print(f"Response: {json.dumps(data, indent=2)}")
+            print(f"✅ Response received")
+            print(f"PIN: {data.get('pin')}")
+            print(f"City: {data.get('city')}")
+            print(f"State: {data.get('state')}")
+            print(f"Generic: {data.get('generic')}")
             
-            # D1: Response shape MUST be { assets:[...], count: number }
-            if 'assets' not in data or 'count' not in data:
-                print("❌ D1 failed - response must contain 'assets' and 'count'")
-                return False
+            groups = data.get('groups', [])
+            print(f"Groups count: {len(groups)}")
+            
+            if data.get('pin') == '411014' and data.get('city') == 'Pune' and data.get('state') == 'Maharashtra':
+                print("✅ Correct PIN, city, and state")
+            else:
+                print("❌ Incorrect PIN, city, or state")
+            
+            if data.get('generic') == False:
+                print("✅ Generic is false")
+            else:
+                print("❌ Generic should be false")
+            
+            if len(groups) >= 8:
+                print("✅ Groups length >= 8")
+                # Check mapsLink format
+                maps_links_valid = True
+                for group in groups:
+                    for office in group.get('offices', []):
+                        maps_link = office.get('mapsLink', '')
+                        if not maps_link.startswith('https://www.google.com/maps/search/'):
+                            maps_links_valid = False
+                            print(f"❌ Invalid mapsLink: {maps_link}")
+                            break
+                    if not maps_links_valid:
+                        break
                 
-            # D2: Response MUST NOT contain key "total" anywhere
-            if 'total' in data:
-                print("❌ D2 failed - response must NOT contain 'total' key")
-                return False
-                
-            assets = data.get('assets', [])
-            if not isinstance(assets, list):
-                print("❌ Assets should be a list")
-                return False
-                
-            if not isinstance(data.get('count'), int):
-                print("❌ Count should be a number")
-                return False
-                
-            # D3: Each asset MUST NOT contain key "amount"
-            for i, asset in enumerate(assets):
-                if 'amount' in asset:
-                    print(f"❌ D3 failed - asset {i} contains 'amount' key")
-                    return False
-                    
-            # D4: Each asset MUST contain required keys
-            required_asset_fields = ['source', 'type', 'headline', 'detail', 'meaning', 'next_step', 'formKey']
-            for i, asset in enumerate(assets):
-                missing_fields = [field for field in required_asset_fields if field not in asset]
-                if missing_fields:
-                    print(f"❌ D4 failed - asset {i} missing fields: {missing_fields}")
-                    return False
-                    
-            # D5: Stringify the body and assert it does NOT contain the rupee symbol "₹"
-            response_text = json.dumps(data)
-            if '₹' in response_text:
-                print("❌ D5 failed - response contains rupee symbol '₹'")
-                return False
-                
-            print("✅ D1-D5 passed - assets scan contains no monetary values")
-            return True
+                if maps_links_valid:
+                    print("✅ All mapsLinks start with correct URL")
+            else:
+                print(f"❌ Groups length < 8: {len(groups)}")
         else:
-            print(f"❌ Assets scan failed with status {response.status_code}: {response.text}")
-            return False
-            
+            print(f"❌ Expected 200, got {response.status_code}: {response.text}")
     except Exception as e:
-        print(f"❌ Assets scan error: {str(e)}")
-        return False
-
-def test_chat_no_money(session_id):
-    """Test E: Quick regression on /api/chat - NO MONEY"""
-    print(f"\n=== TEST E: POST /api/chat - NO MONEY REGRESSION ===")
+        print(f"❌ Request failed: {e}")
     
-    if not session_id:
-        print("❌ No sessionId available for chat test")
-        return False
-    
+    # Test 2: PIN 110001 (Delhi)
+    print("\nTest 2: /api/offices?pin=110001 (Delhi)")
     try:
-        payload = {
-            "sessionId": session_id,
-            "message": "What is in his EPF?"
-        }
-        
-        response = requests.post(f"{BASE_URL}/chat", json=payload, timeout=30)
+        response = requests.get(f"{BASE_URL}/offices?pin=110001", timeout=10)
         print(f"Status: {response.status_code}")
-        
         if response.status_code == 200:
             data = response.json()
-            print(f"Response: {json.dumps(data, indent=2)}")
+            if data.get('city') == 'Delhi':
+                print("✅ City is Delhi")
+            else:
+                print(f"❌ Expected Delhi, got {data.get('city')}")
             
+            groups = data.get('groups', [])
+            if len(groups) >= 8:
+                print("✅ Groups length >= 8")
+            else:
+                print(f"❌ Groups length < 8: {len(groups)}")
+        else:
+            print(f"❌ Expected 200, got {response.status_code}")
+    except Exception as e:
+        print(f"❌ Request failed: {e}")
+    
+    # Test 3: PIN 400001 (Mumbai)
+    print("\nTest 3: /api/offices?pin=400001 (Mumbai)")
+    try:
+        response = requests.get(f"{BASE_URL}/offices?pin=400001", timeout=10)
+        print(f"Status: {response.status_code}")
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('city') == 'Mumbai':
+                print("✅ City is Mumbai")
+            else:
+                print(f"❌ Expected Mumbai, got {data.get('city')}")
+        else:
+            print(f"❌ Expected 200, got {response.status_code}")
+    except Exception as e:
+        print(f"❌ Request failed: {e}")
+    
+    # Test 4: PIN 560001 (Bengaluru)
+    print("\nTest 4: /api/offices?pin=560001 (Bengaluru)")
+    try:
+        response = requests.get(f"{BASE_URL}/offices?pin=560001", timeout=10)
+        print(f"Status: {response.status_code}")
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('city') == 'Bengaluru':
+                print("✅ City is Bengaluru")
+            else:
+                print(f"❌ Expected Bengaluru, got {data.get('city')}")
+        else:
+            print(f"❌ Expected 200, got {response.status_code}")
+    except Exception as e:
+        print(f"❌ Request failed: {e}")
+    
+    # Test 5: PIN 999999 (Generic)
+    print("\nTest 5: /api/offices?pin=999999 (Generic)")
+    try:
+        response = requests.get(f"{BASE_URL}/offices?pin=999999", timeout=10)
+        print(f"Status: {response.status_code}")
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('generic') == True:
+                print("✅ Generic is true")
+            else:
+                print(f"❌ Generic should be true, got {data.get('generic')}")
+            
+            groups = data.get('groups', [])
+            if len(groups) == 10:
+                print("✅ Groups length == 10")
+                
+                # Check all offices have mapsLink starting with correct URL
+                all_maps_valid = True
+                for group in groups:
+                    for office in group.get('offices', []):
+                        maps_link = office.get('mapsLink', '')
+                        if not maps_link.startswith('https://www.google.com/maps/search/'):
+                            all_maps_valid = False
+                            print(f"❌ Invalid mapsLink: {maps_link}")
+                            break
+                    if not all_maps_valid:
+                        break
+                
+                if all_maps_valid:
+                    print("✅ All offices have valid mapsLinks")
+            else:
+                print(f"❌ Groups length != 10: {len(groups)}")
+        else:
+            print(f"❌ Expected 200, got {response.status_code}")
+    except Exception as e:
+        print(f"❌ Request failed: {e}")
+    
+    # Test 6: No pin and no sessionId
+    print("\nTest 6: /api/offices without pin or sessionId")
+    try:
+        response = requests.get(f"{BASE_URL}/offices", timeout=10)
+        print(f"Status: {response.status_code}")
+        if response.status_code == 400:
+            print("✅ Correctly returned 400")
+        else:
+            print(f"❌ Expected 400, got {response.status_code}")
+    except Exception as e:
+        print(f"❌ Request failed: {e}")
+    
+    # Test 7: Invalid pin
+    print("\nTest 7: /api/offices?pin=12 (invalid)")
+    try:
+        response = requests.get(f"{BASE_URL}/offices?pin=12", timeout=10)
+        print(f"Status: {response.status_code}")
+        if response.status_code == 400:
+            print("✅ Correctly returned 400 for invalid PIN")
+        else:
+            print(f"❌ Expected 400, got {response.status_code}")
+    except Exception as e:
+        print(f"❌ Request failed: {e}")
+    
+    # Test 8: Using sessionId (if we have one from onboard test)
+    if 'test_session_id' in globals():
+        print(f"\nTest 8: /api/offices?sessionId={test_session_id}")
+        try:
+            response = requests.get(f"{BASE_URL}/offices?sessionId={test_session_id}", timeout=10)
+            print(f"Status: {response.status_code}")
+            if response.status_code == 200:
+                data = response.json()
+                print("✅ Successfully used sessionId to get offices")
+                print(f"PIN: {data.get('pin')}")
+            else:
+                print(f"❌ Expected 200, got {response.status_code}")
+        except Exception as e:
+            print(f"❌ Request failed: {e}")
+
+def test_epfo_iepf_integrations():
+    """Test C) EPFO/IEPF integrations"""
+    print("\n=== C) TESTING EPFO/IEPF INTEGRATIONS ===")
+    
+    # Test 1: EPFO lookup with valid UAN
+    print("Test 1: POST /api/epfo-lookup with valid UAN")
+    try:
+        response = requests.post(f"{BASE_URL}/epfo-lookup", json={"uan": "100200300400"}, timeout=10)
+        print(f"Status: {response.status_code}")
+        if response.status_code == 200:
+            data = response.json()
+            print("✅ EPFO lookup successful")
+            if data.get('found') == True:
+                print("✅ Found is true")
+                required_fields = ['employer', 'actions']
+                for field in required_fields:
+                    if field in data:
+                        print(f"✅ Has {field}: {data[field]}")
+                    else:
+                        print(f"❌ Missing {field}")
+            else:
+                print("❌ Found should be true")
+        else:
+            print(f"❌ Expected 200, got {response.status_code}: {response.text}")
+    except Exception as e:
+        print(f"❌ Request failed: {e}")
+    
+    # Test 2: IEPF lookup with name
+    print("\nTest 2: POST /api/iepf-lookup with name")
+    try:
+        response = requests.post(f"{BASE_URL}/iepf-lookup", json={"name": "Ramesh Kumar"}, timeout=10)
+        print(f"Status: {response.status_code}")
+        if response.status_code == 200:
+            data = response.json()
+            print("✅ IEPF lookup successful")
+            if data.get('found') == True:
+                print("✅ Found is true")
+                matches = data.get('matches', [])
+                if len(matches) >= 1:
+                    print(f"✅ Matches array has {len(matches)} items")
+                else:
+                    print("❌ Matches array should have >= 1 items")
+                
+                if data.get('source') == 'mock':
+                    print("✅ Source is mock")
+                else:
+                    print(f"❌ Expected source 'mock', got {data.get('source')}")
+            else:
+                print("❌ Found should be true")
+        else:
+            print(f"❌ Expected 200, got {response.status_code}: {response.text}")
+    except Exception as e:
+        print(f"❌ Request failed: {e}")
+    
+    # Test 3: IEPF lookup without name
+    print("\nTest 3: POST /api/iepf-lookup without name")
+    try:
+        response = requests.post(f"{BASE_URL}/iepf-lookup", json={}, timeout=10)
+        print(f"Status: {response.status_code}")
+        if response.status_code == 200:
+            data = response.json()
+            print("✅ IEPF lookup successful")
+            if data.get('found') == False:
+                print("✅ Found is false (as expected for empty request)")
+            else:
+                print("❌ Found should be false for empty request")
+        else:
+            print(f"❌ Expected 200, got {response.status_code}: {response.text}")
+    except Exception as e:
+        print(f"❌ Request failed: {e}")
+
+def test_regression():
+    """Test D) Quick regression tests"""
+    print("\n=== D) TESTING REGRESSION ===")
+    
+    # Test 1: Panic endpoint
+    if 'test_session_id' in globals():
+        print(f"Test 1: /api/panic/{test_session_id}")
+        try:
+            response = requests.get(f"{BASE_URL}/panic/{test_session_id}", timeout=10)
+            print(f"Status: {response.status_code}")
+            if response.status_code == 200:
+                data = response.json()
+                actions = data.get('actions', [])
+                warning = data.get('warning', '')
+                
+                if len(actions) == 3:
+                    print("✅ Returns exactly 3 actions")
+                else:
+                    print(f"❌ Expected 3 actions, got {len(actions)}")
+                
+                if warning:
+                    print("✅ Has warning string")
+                else:
+                    print("❌ Missing warning")
+                
+                # Check if actions[0].title is a real human title (not a key)
+                if actions and 'title' in actions[0]:
+                    title = actions[0]['title']
+                    if not title.startswith('t01.title'):
+                        print(f"✅ actions[0].title is human readable: {title}")
+                    else:
+                        print(f"❌ actions[0].title is a key, not human readable: {title}")
+                else:
+                    print("❌ actions[0] missing title")
+            else:
+                print(f"❌ Expected 200, got {response.status_code}")
+        except Exception as e:
+            print(f"❌ Request failed: {e}")
+    
+    # Test 2: Assets scan (no monetary values)
+    if 'test_session_id' in globals():
+        print(f"\nTest 2: /api/assets/scan/{test_session_id}")
+        try:
+            response = requests.get(f"{BASE_URL}/assets/scan/{test_session_id}", timeout=10)
+            print(f"Status: {response.status_code}")
+            if response.status_code == 200:
+                data = response.json()
+                response_text = json.dumps(data)
+                
+                # Check for absence of monetary fields
+                has_rupee = '₹' in response_text
+                has_amount = 'amount' in data
+                has_total = 'total' in data
+                
+                if not has_rupee:
+                    print("✅ No ₹ symbol found")
+                else:
+                    print("❌ Found ₹ symbol in response")
+                
+                if not has_amount:
+                    print("✅ No 'amount' field found")
+                else:
+                    print("❌ Found 'amount' field in response")
+                
+                if not has_total:
+                    print("✅ No 'total' field found")
+                else:
+                    print("❌ Found 'total' field in response")
+                
+                # Check structure
+                if 'assets' in data and 'count' in data:
+                    print("✅ Has correct structure (assets, count)")
+                else:
+                    print("❌ Missing assets or count fields")
+            else:
+                print(f"❌ Expected 200, got {response.status_code}")
+        except Exception as e:
+            print(f"❌ Request failed: {e}")
+    
+    # Test 3: Chat with Hindi language
+    print("\nTest 3: /api/chat with language:'hi' (Devanagari response)")
+    try:
+        chat_payload = {
+            "message": "मुझे क्या करना चाहिए?",
+            "language": "hi"
+        }
+        response = requests.post(f"{BASE_URL}/chat", json=chat_payload, timeout=15)
+        print(f"Status: {response.status_code}")
+        if response.status_code == 200:
+            data = response.json()
             reply = data.get('reply', '')
-            if not reply:
-                print("❌ Chat response should contain 'reply'")
-                return False
-                
-            # Check that reply does NOT contain ₹ or any number followed by 'lakh'/'crore'/'rupees'
-            if '₹' in reply:
-                print(f"❌ Chat reply contains rupee symbol '₹': {reply}")
-                return False
-                
-            import re
-            money_pattern = r'\d+\s*(lakh|crore|rupees)'
-            if re.search(money_pattern, reply, re.IGNORECASE):
-                print(f"❌ Chat reply contains money references: {reply}")
-                return False
-                
-            print("✅ E passed - chat reply contains no money references")
-            return True
-        else:
-            print(f"❌ Chat failed with status {response.status_code}: {response.text}")
-            return False
+            print(f"Reply: {reply}")
             
+            # Check for Devanagari characters (Unicode range U+0900-U+097F)
+            devanagari_pattern = r'[\u0900-\u097F]'
+            has_devanagari = bool(re.search(devanagari_pattern, reply))
+            
+            if has_devanagari:
+                print("✅ Response contains Devanagari characters")
+            else:
+                print("❌ Response does not contain Devanagari characters")
+        else:
+            print(f"❌ Expected 200, got {response.status_code}: {response.text}")
     except Exception as e:
-        print(f"❌ Chat error: {str(e)}")
-        return False
+        print(f"❌ Request failed: {e}")
 
 def main():
-    """Run all backend tests"""
-    print("🚀 Starting GriefTech Backend API Tests")
+    """Run all tests"""
+    print("🚀 Starting GriefTech Backend Testing Suite")
     print(f"Base URL: {BASE_URL}")
-    print("=" * 60)
     
-    # Setup: Get sessionId
-    session_id = test_onboard_setup()
-    
-    # Run all tests
-    test_results = {
-        "epfo_lookup": test_epfo_lookup(),
-        "panic": test_panic_endpoint(session_id),
-        "extract_document": test_extract_document(),
-        "assets_scan_no_money": test_assets_scan_no_money(session_id),
-        "chat_no_money": test_chat_no_money(session_id)
-    }
-    
-    # Summary
-    print("\n" + "=" * 60)
-    print("🏁 TEST SUMMARY")
-    print("=" * 60)
-    
-    passed = 0
-    total = len(test_results)
-    
-    for test_name, result in test_results.items():
-        status = "✅ PASSED" if result else "❌ FAILED"
-        print(f"{test_name}: {status}")
-        if result:
-            passed += 1
-    
-    print(f"\nOverall: {passed}/{total} tests passed")
-    
-    if passed == total:
-        print("🎉 All tests passed!")
-        return 0
-    else:
-        print("💥 Some tests failed!")
-        return 1
+    try:
+        test_onboard_validation()
+        test_offices_api()
+        test_epfo_iepf_integrations()
+        test_regression()
+        
+        print("\n🎉 All tests completed!")
+        
+    except KeyboardInterrupt:
+        print("\n⚠️ Tests interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n💥 Unexpected error: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

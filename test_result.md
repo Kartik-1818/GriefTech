@@ -266,6 +266,51 @@ metadata:
         -agent: "testing"
         -comment: "✅ All tests passed: Response contains correct structure with 'assets' array and 'count' field. NO 'total' key present. Each asset contains all required fields (source, type, headline, detail, meaning, next_step, formKey) and NO 'amount' key. Response contains no rupee symbol '₹'. Successfully verified zero monetary values."
 
+  - task: "POST /api/onboard now requires Aadhaar (12-digit) + PIN code (6-digit)"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js, lib/demo.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Validates aadhaar matches /^\\d{12}$/ and pincode matches /^\\d{6}$/. Missing/short Aadhaar returns 400 'Aadhaar must be 12 digits'. Missing/short PIN returns 400 'PIN code must be 6 digits'. Sessions persist aadhaar and pincode in profile."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ All onboard validation tests passed: Valid onboard with aadhaar and pincode returns 200 with sessionId and profile containing both fields. Invalid aadhaar (too short) correctly returns 400 with 'Aadhaar' error. Invalid pincode (non-numeric and too short) correctly returns 400 with 'PIN' error. Aadhaar with spaces '1234 5678 9012' correctly strips spaces and persists as '123456789012'. Missing aadhaar field correctly returns 400. All validation working as expected."
+
+  - task: "GET /api/offices?pin=NNNNNN — nearest offices DB lookup"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js, lib/offices.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Returns {pin, city, state, generic, groups:[{category,label,why,offices:[{name,address,phone,hours,mapsLink}]}]}. PIN 411014 (Pune) returns curated offices across 10 categories. PIN 999999 returns generic:true with Maps search links. Also accepts ?sessionId= to use the profile PIN."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ All offices API tests passed: PIN 411014 returns correct Pune data with generic=false and 10 groups with valid mapsLinks. PIN 110001 returns Delhi with 8+ groups. PIN 400001 returns Mumbai. PIN 560001 returns Bengaluru. PIN 999999 returns generic=true with exactly 10 groups and all mapsLinks start with 'https://www.google.com/maps/search/'. Missing pin/sessionId correctly returns 400. Invalid PIN correctly returns 400. SessionId lookup works correctly using profile.pincode. All functionality working perfectly."
+
+  - task: "EPFO/IEPF integrations isolated under lib/integrations/"
+    implemented: true
+    working: true
+    file: "lib/integrations/epfo.js, lib/integrations/iepf.js"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "lookupEpfo() falls through to deterministic mock by default. SETU adapter ready (set EPFO_PROVIDER=setu + SETU_API_KEY/SETU_BASE_URL to enable). New /api/iepf-lookup endpoint also exposed."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ All EPFO/IEPF integration tests passed: POST /api/epfo-lookup with UAN '100200300400' returns found=true with employer 'ICICI Bank Ltd.' and actions array with Form 20 and Form 10D. POST /api/iepf-lookup with name 'Ramesh Kumar' returns found=true with 2 matches and source='mock'. POST /api/iepf-lookup with empty body returns found=false as expected. All integrations working correctly with isolated libraries."
+
 test_plan:
   current_focus: []
   stuck_tasks: []
@@ -340,3 +385,36 @@ agent_communication:
       🔍 VERIFIED ACROSS ALL PAGES: Zero rupee symbols (₹) in the entire application
       
       The GriefTech app is working beautifully with compassionate UX and all key features functional.
+
+    -agent: "testing"
+    -message: |
+      ✅ THREE NEW BACKEND ADDITIONS TESTING COMPLETE - ALL TESTS PASSED
+      
+      Successfully tested all THREE new backend additions as specified in the review request:
+      
+      🎯 A) ONBOARD VALIDATION (Aadhaar + PIN compulsory): ✅ ALL PASSED
+      - Valid onboard with aadhaar:"123456789012" + pincode:"411014" returns 200 with sessionId and profile containing both fields
+      - Invalid aadhaar:"12345" correctly returns 400 with "Aadhaar" error message
+      - Invalid pincode:"abc" and "111" correctly return 400 with "PIN" error message  
+      - Aadhaar with spaces "1234 5678 9012" correctly strips spaces and persists as "123456789012"
+      - Missing aadhaar field correctly returns 400
+      
+      🎯 B) GET /api/offices: ✅ ALL PASSED
+      - PIN 411014 returns Pune with generic=false, 10 groups, all mapsLinks valid
+      - PIN 110001 returns Delhi with 8+ groups
+      - PIN 400001 returns Mumbai, PIN 560001 returns Bengaluru
+      - PIN 999999 returns generic=true with exactly 10 groups, all mapsLinks start with "https://www.google.com/maps/search/"
+      - Missing pin/sessionId correctly returns 400, invalid PIN returns 400
+      - SessionId lookup works using profile.pincode
+      
+      🎯 C) EPFO/IEPF INTEGRATIONS: ✅ ALL PASSED
+      - POST /api/epfo-lookup with UAN:"100200300400" returns found=true + employer + actions (isolated lib working)
+      - POST /api/iepf-lookup with name:"Ramesh Kumar" returns found=true + matches array + source:"mock"
+      - POST /api/iepf-lookup with empty body returns found=false
+      
+      🎯 D) REGRESSION TESTS: ✅ ALL PASSED
+      - /api/panic/{sid} returns 3 actions + 1 warning, actions[0].title is human readable (not key)
+      - /api/assets/scan/{sid} has NO ₹/amount/total fields, correct structure
+      - /api/chat with language:"hi" responds in Devanagari (contains Unicode U+0900-U+097F characters)
+      
+      All new backend features are working perfectly with proper validation, error handling, and response structures.

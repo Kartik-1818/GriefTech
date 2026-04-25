@@ -1,61 +1,62 @@
 'use client';
 import Link from 'next/link';
-import { ShieldCheck, HeartHandshake, FileText, Sparkles, ChevronRight, ScanSearch, Upload, Bell } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Sparkles, ChevronRight, ScanSearch, Upload, Bell, ShieldCheck, HeartHandshake, FileText } from 'lucide-react';
 import AIChatWidget from '@/components/AIChatWidget';
+import LanguageToggle from '@/components/LanguageToggle';
+import { t, getLang } from '@/lib/i18n';
 
 export default function Home() {
+  const [lang, setLang] = useState('en');
+  useEffect(() => { setLang(getLang()); }, []);
+
   return (
     <main className="min-h-screen gt-gradient">
-      <nav className="max-w-6xl mx-auto px-5 py-5 flex items-center justify-between">
+      <nav className="max-w-6xl mx-auto px-5 py-5 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-[#028090] flex items-center justify-center text-white font-bold">G</div>
-          <span className="font-semibold text-lg">GriefTech</span>
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#028090] to-[#03A9B3] flex items-center justify-center text-white font-bold shadow-md">G</div>
+          <span className="font-semibold text-lg tracking-tight">{t('common.app_name', lang)}</span>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <a href="#why" className="text-slate-600 hover:text-slate-900">Why this matters</a>
-          <a href="#how" className="text-slate-600 hover:text-slate-900 hidden sm:inline">How it works</a>
-          <Link href="/start" className="gt-btn-primary rounded-full px-4 py-2 font-medium">Get Started</Link>
+          <LanguageToggle />
+          <Link href="/start" className="gt-btn-primary rounded-full px-4 py-2 font-medium">{t('landing.cta_start', lang)}</Link>
         </div>
       </nav>
 
       <section className="max-w-6xl mx-auto px-5 pt-10 pb-16 grid md:grid-cols-2 gap-10 items-center">
         <div className="gt-fade-up">
-          <div className="inline-flex items-center gap-2 text-xs font-medium text-[#014f5a] bg-[#E1EFEF] px-3 py-1 rounded-full mb-4">
-            <Sparkles className="h-3 w-3" /> Calm guidance for Indian families after a loss
+          <div className="inline-flex items-center gap-2 text-xs font-medium text-[#014f5a] bg-white border border-[#E1EFEF] px-3 py-1 rounded-full mb-4 shadow-sm">
+            <Sparkles className="h-3 w-3" /> {t('landing.tagline', lang)}
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-tight">
-            Your AI guide through one of<br />life's hardest moments.
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-tight text-[#1F2D31]">
+            {t('landing.title_1', lang)}<br /><span className="text-[#028090]">{t('landing.title_2', lang)}</span>
           </h1>
-          <p className="mt-5 text-lg text-slate-600 max-w-xl">
-            What should you do next, right now? GriefTech turns 20+ confusing legal & financial steps into one
-            calm, guided plan — with auto-filled forms and an empathetic assistant beside you.
-          </p>
-          <div className="mt-8 flex items-center gap-3">
+          <p className="mt-5 text-lg text-slate-600 max-w-xl leading-relaxed">{t('landing.subtitle', lang)}</p>
+          <div className="mt-8 flex items-center gap-3 flex-wrap">
             <Link href="/start" className="gt-btn-primary rounded-full px-6 py-3 font-medium inline-flex items-center gap-2">
-              Start — it takes 60 seconds <ChevronRight className="h-4 w-4" />
+              {t('landing.cta_start', lang)} <ChevronRight className="h-4 w-4" />
             </Link>
-            <a href="#how" className="text-slate-600 hover:text-slate-900 text-sm">Learn more</a>
+            <a href="#how" className="text-slate-600 hover:text-slate-900 text-sm">{t('landing.learn_more', lang)}</a>
           </div>
           <div className="mt-8 flex items-center gap-6 text-xs text-slate-500 flex-wrap">
-            <div className="flex items-center gap-1.5"><Upload className="h-4 w-4 text-[#028090]" /> Upload → auto-fill</div>
-            <div className="flex items-center gap-1.5"><ScanSearch className="h-4 w-4 text-[#028090]" /> EPF magic detection</div>
-            <div className="flex items-center gap-1.5"><Bell className="h-4 w-4 text-[#028090]" /> Panic button</div>
+            <div className="flex items-center gap-1.5"><Upload className="h-4 w-4 text-[#028090]" /> {t('landing.feature_upload', lang)}</div>
+            <div className="flex items-center gap-1.5"><ScanSearch className="h-4 w-4 text-[#028090]" /> {t('landing.feature_magic', lang)}</div>
+            <div className="flex items-center gap-1.5"><Bell className="h-4 w-4 text-[#028090]" /> {t('landing.feature_panic', lang)}</div>
           </div>
         </div>
         <div className="relative">
           <div className="gt-card overflow-hidden">
             <img src="https://images.pexels.com/photos/33321461/pexels-photo-33321461.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
-              alt="Family hands joined in support" className="w-full h-[360px] object-cover" />
+              alt="" className="w-full h-[360px] object-cover" />
             <div className="p-5">
               <div className="flex items-center gap-2 text-xs text-slate-500">
-                <ScanSearch className="h-4 w-4 text-[#028090]" />
-                Detects EPF accounts, insurance policies, deposits, dividends and property
+                <ScanSearch className="h-4 w-4 text-[#028090]" /> {t('landing.scanner_caption', lang)}
               </div>
             </div>
           </div>
           <div className="absolute -bottom-6 -left-6 gt-card px-5 py-4 hidden md:block">
-            <div className="text-base font-semibold text-[#028090]">EPF account detected</div>
-            <div className="text-xs text-slate-500">Tata Consultancy Services Ltd. • last contribution Mar 2025</div>
+            <div className="text-base font-semibold text-[#028090]">{t('landing.epf_card_t', lang)}</div>
+            <div className="text-xs text-slate-500">{t('landing.epf_card_s', lang)}</div>
           </div>
         </div>
       </section>
@@ -63,47 +64,47 @@ export default function Home() {
       <section id="why" className="max-w-6xl mx-auto px-5 py-14">
         <div className="grid md:grid-cols-3 gap-5">
           <div className="gt-card p-6">
-            <div className="text-3xl font-bold text-[#028090]">8 million</div>
-            <div className="text-sm text-slate-600 mt-1">Indians lose a loved one every year</div>
+            <div className="text-3xl font-bold text-[#028090]">{t('landing.stat_8m', lang)}</div>
+            <div className="text-sm text-slate-600 mt-1">{t('landing.stat_8m_sub', lang)}</div>
           </div>
           <div className="gt-card p-6">
-            <div className="text-3xl font-bold text-[#028090]">23+</div>
-            <div className="text-sm text-slate-600 mt-1">legal & financial tasks each grieving family has to navigate</div>
+            <div className="text-3xl font-bold text-[#028090]">{t('landing.stat_23', lang)}</div>
+            <div className="text-sm text-slate-600 mt-1">{t('landing.stat_23_sub', lang)}</div>
           </div>
           <div className="gt-card p-6">
-            <div className="text-3xl font-bold text-[#028090]">Quietly lost</div>
-            <div className="text-sm text-slate-600 mt-1">millions of EPF, IEPF, insurance and bank deposits go unclaimed</div>
+            <div className="text-3xl font-bold text-[#028090]">{t('landing.stat_lost', lang)}</div>
+            <div className="text-sm text-slate-600 mt-1">{t('landing.stat_lost_sub', lang)}</div>
           </div>
         </div>
       </section>
 
       <section id="how" className="max-w-6xl mx-auto px-5 pb-24">
-        <h2 className="text-2xl md:text-3xl font-semibold mb-8">How GriefTech helps</h2>
+        <h2 className="text-2xl md:text-3xl font-semibold mb-8">{t('landing.how_title', lang)}</h2>
         <div className="grid md:grid-cols-4 gap-5">
           {[
-            { icon: Upload, title: 'Upload, auto-fill', body: 'Drop a death certificate or Aadhaar — we read it and pre-fill every form.' },
-            { icon: ScanSearch, title: 'Magic detection', body: 'Enter the UAN. We surface the EPF, employer, pension and what to claim.' },
-            { icon: Bell, title: 'Panic button', body: '“What should I do now?” — 3 actions, one warning, in plain language.' },
-            { icon: Sparkles, title: 'AI by your side', body: 'Calm Hindi/English guide that always gives the next step, not jargon.' }
+            { icon: Upload, k_t: 'landing.how_upload', k_s: 'landing.how_upload_sub' },
+            { icon: ScanSearch, k_t: 'landing.how_magic', k_s: 'landing.how_magic_sub' },
+            { icon: Bell, k_t: 'landing.how_panic', k_s: 'landing.how_panic_sub' },
+            { icon: Sparkles, k_t: 'landing.how_ai', k_s: 'landing.how_ai_sub' }
           ].map((f, i) => (
             <div key={i} className="gt-card p-5">
-              <div className="h-10 w-10 rounded-full bg-[#E1EFEF] flex items-center justify-center mb-3">
+              <div className="h-10 w-10 rounded-xl bg-[#E1EFEF] flex items-center justify-center mb-3">
                 <f.icon className="h-5 w-5 text-[#028090]" />
               </div>
-              <div className="font-semibold">{f.title}</div>
-              <div className="text-sm text-slate-600 mt-1">{f.body}</div>
+              <div className="font-semibold">{t(f.k_t, lang)}</div>
+              <div className="text-sm text-slate-600 mt-1">{t(f.k_s, lang)}</div>
             </div>
           ))}
         </div>
         <div className="mt-12 flex flex-col items-center gap-4">
           <Link href="/start" className="gt-btn-primary rounded-full px-8 py-4 text-lg font-medium inline-flex items-center gap-2">
-            Begin with care <ChevronRight className="h-5 w-5" />
+            {t('landing.begin', lang)} <ChevronRight className="h-5 w-5" />
           </Link>
-          <p className="text-xs text-slate-500 max-w-md text-center">Sources: EPFO (epfindia.gov.in), IEPF (iepf.gov.in), IRDAI, RBI DEA Fund.</p>
+          <p className="text-xs text-slate-500 max-w-md text-center">{t('landing.sources', lang)}</p>
         </div>
       </section>
 
-      <AIChatWidget greeting="I'm here whenever you need me. When you're ready, click Get Started and I'll walk beside you." />
+      <AIChatWidget greeting={t('landing.greeting', lang)} />
     </main>
   );
 }
