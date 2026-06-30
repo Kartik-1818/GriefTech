@@ -1,7 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 :root {
   --teal: #028090;
   --teal-dark: #014f5a;
@@ -14,14 +13,12 @@
   --text-warm: #2F3D40;
   --border-soft: #ECE6DA;
 }
-
 html, body { font-size: 16px; }
 body {
   font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
   background: #FAF7F2;
   color: #2F3D40;
 }
-
 .gt-gradient {
   background:
     radial-gradient(900px 480px at 8% -5%, #DFF1F0 0%, transparent 55%),
@@ -29,20 +26,17 @@ body {
     radial-gradient(800px 420px at 50% 110%, #E5F1EA 0%, transparent 60%),
     #FAF7F2;
 }
-
 .gt-card {
   background: #ffffff;
   border: 1px solid var(--border-soft);
   border-radius: 22px;
   box-shadow: 0 1px 2px rgba(2,128,144,0.03), 0 8px 28px rgba(63,73,76,0.05);
 }
-
 .gt-card-soft {
   background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,251,250,0.96) 100%);
   border: 1px solid var(--border-soft);
   border-radius: 22px;
 }
-
 .gt-btn-primary {
   background: #028090; color: #fff;
   transition: background .15s, transform .08s, box-shadow .15s;
@@ -50,7 +44,6 @@ body {
 }
 .gt-btn-primary:hover { background: #014f5a; box-shadow: 0 6px 22px rgba(2,128,144,0.22); }
 .gt-btn-primary:active { transform: translateY(1px); }
-
 .gt-btn-ghost {
   background: #ffffff; color: #014f5a;
   border: 1px solid var(--border-soft);
